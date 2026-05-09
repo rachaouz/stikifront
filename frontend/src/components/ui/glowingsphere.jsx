@@ -1,5 +1,5 @@
 // src/components/GlowingSphere.jsx
-import { LOGO_URL, MOBILIS_LOGO_URL } from "../constants";
+import { LOGO_URL, MOBILIS_LOGO_URL } from "../../constants";
 
 export default function GlowingSphere() {
   return (
