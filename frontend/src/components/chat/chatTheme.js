@@ -1,0 +1,43 @@
+export const DARK = {
+  bg:           "#050b12",
+  sidebar:      "#060d16",
+  surface:      "rgba(6,16,28,0.92)",
+  surfaceHover: "rgba(10,28,50,0.7)",
+  border:       "rgba(0,168,255,0.12)",
+  borderActive: "rgba(0,168,255,0.45)",
+  accent:       "#00a8ff",
+  accentAlt:    "#38d9ff",
+  accentDim:    "#0068b3",
+  accentGlow:   "rgba(0,168,255,0.18)",
+  accentSubtle: "rgba(0,168,255,0.07)",
+  text:         "#e2f0ff",
+  textMuted:    "rgba(160,210,255,0.55)",
+  textFaint:    "rgba(160,210,255,0.28)",
+  userBubble:   "rgba(0,80,160,0.25)",
+  botBubble:    "rgba(6,16,28,0.92)",
+  input:        "rgba(4,12,22,0.95)",
+  scrollThumb:  "rgba(0,168,255,0.18)",
+};
+
+export const LIGHT = {
+  bg:           "#eef7ee",
+  sidebar:      "#dff0df",
+  surface:      "rgba(255,255,255,0.97)",
+  surfaceHover: "rgba(210,240,210,0.75)",
+  border:       "rgba(34,120,34,0.18)",
+  borderActive: "rgba(34,120,34,0.55)",
+  accent:       "#1a6e1a",
+  accentAlt:    "#2da02d",
+  accentDim:    "#0f4f0f",
+  accentGlow:   "rgba(34,120,34,0.12)",
+  accentSubtle: "rgba(34,120,34,0.08)",
+  text:         "#0d2e0d",
+  textMuted:    "rgba(15,60,15,0.65)",
+  textFaint:    "rgba(15,60,15,0.38)",
+  userBubble:   "rgba(34,120,34,0.10)",
+  botBubble:    "rgba(245,253,245,0.99)",
+  input:        "rgba(245,253,245,0.99)",
+  scrollThumb:  "rgba(34,120,34,0.20)",
+};
+
+export const t = (darkMode) => (darkMode ? DARK : LIGHT);
