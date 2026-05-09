@@ -43,7 +43,7 @@ export { chatbotApi } from "./chatbot";
 export { chatSessionsApi } from "./chat";
 export { historyApi } from "./history";
 export { statsApi } from "./stats";
-export { exportApi } from "./export";
+export * from "./export";
 
 // Export utilities for use in modules
 export { request, download, BASE_URL, authHeaders };
