@@ -1,51 +1,31 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { t } from "./chatTheme";
-import { historyApi } from "../../api/history";
+import { useState }              from "react";
+import { useNavigate }           from "react-router-dom";
+import { t }                     from "./chatTheme";
+import { useSidebarHistory }     from "../../hooks/useSidebarHistory";
+import { highlightMatch }        from "../../utils/formatUtils";
 
+/**
+ * ChatSidebar — composant d'affichage uniquement.
+ *
+ * Avant : fetch + delete + formatage + rendu tous dans ce fichier.
+ * Après : la logique métier est dans useSidebarHistory(),
+ *         les helpers de formatage sont dans utils/formatUtils.js.
+ *         Ce composant ne fait plus que du rendu.
+ */
 export default function ChatSidebar({ open, darkMode, selectedChat, onSelectChat, onNewChat }) {
   const th = t(darkMode);
-  const [search, setSearch]   = useState("");
-  const [history, setHistory] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [hoveredId, setHoveredId] = useState(null);
   const navigate = useNavigate();
 
-  const loadHistory = () => {
-    setLoading(true);
-    historyApi.get({ limit: 50 })
-      .then(data => {
-        const items = (data.results || []).map(s => ({
-          id:      s.id,
-          title:   s.indicator,
-          preview: `Score: ${s.risk_score ?? "??"}/100 · ${capitalize(s.risk_level ?? "inconnu")}`,
-          date:    formatDate(s.created_at),
-          type:    s.ioc_type,
-        }));
-        setHistory(items);
-      })
-      .catch(() => setHistory([]))
-      .finally(() => setLoading(false));
-  };
+  const [search,    setSearch]    = useState("");
+  const [hoveredId, setHoveredId] = useState(null);
 
-  useEffect(() => {
-    if (!open) return;
-    loadHistory();
-  }, [open]);
+  // ← toute la logique fetch/delete/format est maintenant ici
+  const { history, loading, handleDelete } = useSidebarHistory(open);
 
-  const handleDelete = async (e, id) => {
-    e.stopPropagation();
-    try {
-      await historyApi.delete(id);
-      setHistory(prev => prev.filter(item => item.id !== id));
-    } catch (err) {
-      console.error("Erreur suppression:", err);
-    }
-  };
-
-  const filtered = history.filter(item =>
-    item.title.toLowerCase().includes(search.toLowerCase()) ||
-    item.preview.toLowerCase().includes(search.toLowerCase())
+  const filtered = history.filter(
+    (item) =>
+      item.title.toLowerCase().includes(search.toLowerCase()) ||
+      item.preview.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -81,7 +61,7 @@ export default function ChatSidebar({ open, darkMode, selectedChat, onSelectChat
             </div>
           </div>
 
-          {/* Buttons */}
+          {/* Boutons */}
           <div style={{ padding: "12px", display: "flex", flexDirection: "column", gap: "6px" }}>
             <button
               onClick={onNewChat}
@@ -118,16 +98,17 @@ export default function ChatSidebar({ open, darkMode, selectedChat, onSelectChat
             </button>
           </div>
 
-          {/* Search */}
+          {/* Recherche */}
           <div style={{ padding: "0 12px 10px" }}>
-            <div style={{
-              display: "flex", alignItems: "center", gap: "6px",
-              background: th.input,
-              border: `1px solid ${th.border}`,
-              borderRadius: "6px", padding: "6px 10px",
-            }}
+            <div
+              style={{
+                display: "flex", alignItems: "center", gap: "6px",
+                background: th.input,
+                border: `1px solid ${th.border}`,
+                borderRadius: "6px", padding: "6px 10px",
+              }}
               onFocusCapture={e => e.currentTarget.style.borderColor = th.borderActive}
-              onBlurCapture={e => e.currentTarget.style.borderColor = th.border}
+              onBlurCapture={e  => e.currentTarget.style.borderColor = th.border}
             >
               <span style={{ color: th.textFaint, fontSize: "11px", flexShrink: 0 }}>🔍</span>
               <input
@@ -150,7 +131,7 @@ export default function ChatSidebar({ open, darkMode, selectedChat, onSelectChat
             </div>
           </div>
 
-          {/* History list */}
+          {/* Liste historique */}
           <div style={{ flex: 1, overflowY: "auto", padding: "0 8px" }}>
             <div style={{
               fontSize: "9px", color: th.textFaint,
@@ -167,40 +148,16 @@ export default function ChatSidebar({ open, darkMode, selectedChat, onSelectChat
             </div>
 
             {loading ? (
-              <div style={{
-                padding: "20px 10px", textAlign: "center",
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: "10px", color: th.textFaint, letterSpacing: "1px",
-              }}>
+              <div style={{ padding: "20px 10px", textAlign: "center", fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", color: th.textFaint, letterSpacing: "1px" }}>
                 Chargement...
               </div>
             ) : filtered.length === 0 ? (
-              <div style={{
-                padding: "20px 10px", textAlign: "center",
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: "10px", color: th.textFaint, letterSpacing: "1px",
-              }}>
+              <div style={{ padding: "20px 10px", textAlign: "center", fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", color: th.textFaint, letterSpacing: "1px" }}>
                 {history.length === 0 ? "Aucune analyse effectuée" : "Aucun résultat"}
               </div>
             ) : (
               filtered.map(item => {
-                const highlight = (text) => {
-                  if (!search) return text;
-                  const idx = text.toLowerCase().indexOf(search.toLowerCase());
-                  if (idx === -1) return text;
-                  return (
-                    <>
-                      {text.slice(0, idx)}
-                      <mark style={{ background: `${th.accent}30`, color: th.accent, borderRadius: "2px", padding: "0 1px" }}>
-                        {text.slice(idx, idx + search.length)}
-                      </mark>
-                      {text.slice(idx + search.length)}
-                    </>
-                  );
-                };
-
                 const isHovered = hoveredId === item.id;
-
                 return (
                   <div
                     key={item.id}
@@ -208,52 +165,32 @@ export default function ChatSidebar({ open, darkMode, selectedChat, onSelectChat
                     onMouseEnter={() => setHoveredId(item.id)}
                     onMouseLeave={() => setHoveredId(null)}
                     style={{
-                      padding: "10px",
-                      borderRadius: "6px",
-                      marginBottom: "2px",
-                      cursor: "pointer",
-                      position: "relative",
-                      background: selectedChat === item.id
-                        ? th.accentSubtle
-                        : isHovered ? th.surfaceHover : "transparent",
-                      border: selectedChat === item.id
-                        ? `1px solid ${th.borderActive}`
-                        : "1px solid transparent",
+                      padding: "10px", borderRadius: "6px", marginBottom: "2px",
+                      cursor: "pointer", position: "relative",
+                      background: selectedChat === item.id ? th.accentSubtle : isHovered ? th.surfaceHover : "transparent",
+                      border: selectedChat === item.id ? `1px solid ${th.borderActive}` : "1px solid transparent",
                       transition: "all 0.2s",
                     }}
                   >
-                    <div style={{
-                      fontSize: "11px", color: th.text, marginBottom: "3px",
-                      overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
-                      paddingRight: isHovered ? "20px" : "0",
-                      fontFamily: "'JetBrains Mono', monospace",
-                    }}>
-                      {highlight(item.title)}
+                    <div style={{ fontSize: "11px", color: th.text, marginBottom: "3px", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", paddingRight: isHovered ? "20px" : "0", fontFamily: "'JetBrains Mono', monospace" }}>
+                      {highlightMatch(item.title, search, th)}
                     </div>
                     <div style={{ fontSize: "10px", color: th.textMuted, fontFamily: "'JetBrains Mono', monospace" }}>
-                      {highlight(item.preview)}
+                      {highlightMatch(item.preview, search, th)}
                     </div>
                     <div style={{ fontSize: "9px", color: th.textFaint, marginTop: "2px", fontFamily: "'JetBrains Mono', monospace" }}>
                       {item.date}
                     </div>
 
-                    {/* Bouton supprimer — visible au hover */}
                     {isHovered && (
                       <button
                         onClick={(e) => handleDelete(e, item.id)}
                         title="Supprimer"
                         style={{
-                          position: "absolute",
-                          top: "8px", right: "8px",
-                          background: "transparent",
-                          border: "none",
-                          color: "#ef4444",
-                          cursor: "pointer",
-                          fontSize: "13px",
-                          lineHeight: 1,
-                          padding: "2px 4px",
-                          borderRadius: "4px",
-                          transition: "background 0.15s",
+                          position: "absolute", top: "8px", right: "8px",
+                          background: "transparent", border: "none", color: "#ef4444",
+                          cursor: "pointer", fontSize: "13px", lineHeight: 1,
+                          padding: "2px 4px", borderRadius: "4px", transition: "background 0.15s",
                         }}
                         onMouseEnter={e => e.currentTarget.style.background = "rgba(239,68,68,0.15)"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}
@@ -270,24 +207,4 @@ export default function ChatSidebar({ open, darkMode, selectedChat, onSelectChat
       )}
     </div>
   );
-}
-
-// ── Helpers ──────────────────────────────────────────────────
-function capitalize(str) {
-  if (!str) return "";
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
-
-function formatDate(dateStr) {
-  if (!dateStr) return "";
-  const date  = new Date(dateStr);
-  const now   = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-
-  if (d.getTime() === today.getTime())     return "Aujourd'hui";
-  if (d.getTime() === yesterday.getTime()) return "Hier";
-  return date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 }

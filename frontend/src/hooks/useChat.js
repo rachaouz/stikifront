@@ -1,12 +1,19 @@
 import { useState, useRef, useEffect } from "react";
 import { chatbotApi }                  from "../api";
 import { stripIOCPrefix }              from "../utils/iocDetector";
+import { getTime }                     from "../utils/formatUtils";  // ← extrait
+import { buildReport }                 from "../utils/reportUtils";  // ← extrait
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function getTime() {
-  return new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-}
+/**
+ * useChat — gère toute la logique du chat :
+ * - messages + scroll automatique
+ * - envoi de message + appel API
+ * - gestion IOC actif
+ * - nouveau chat
+ *
+ * Allégé : buildReport et getTime vivent maintenant dans utils/,
+ * ce hook ne contient plus que la logique React pure.
+ */
 
 function makeInitMsg() {
   return {
@@ -16,71 +23,6 @@ function makeInitMsg() {
   };
 }
 
-/**
- * Construit l'objet `report` à partir de la réponse API.
- * Extrait ici pour garder sendMessage lisible.
- */
-function buildReport(data, clean) {
-  const ti = data.ti_summary || {};
-  return {
-    ioc:               clean,
-    type:              data.type,
-    verdict:           data.verdict?.threat_level  || "unknown",
-    threat_level:      data.verdict?.threat_level  || "unknown",
-    score:             data.verdict?.score         || 0,
-    message:           data.message                || "",
-    tags:              data.verdict?.tags          || [],
-    isp:               ti.isp,
-    asn:               ti.asn,
-    country:           ti.country,
-    vt_malicious:      ti.reputation?.virustotal?.malicious  ?? ti.detection?.virustotal?.malicious,
-    vt_suspicious:     ti.reputation?.virustotal?.suspicious ?? ti.detection?.virustotal?.suspicious,
-    vt_undetected:     ti.detection?.virustotal?.undetected,
-    vt_tags:           ti.vt_tags         || [],
-    vt_reputation:     ti.reputation?.vt_reputation,
-    vt_votes:          ti.vt_votes,
-    abuseipdb:         ti.reputation?.abuseipdb?.score,
-    otx_pulses:        ti.reputation?.otx?.pulses ?? ti.detection?.otx?.pulses,
-    associated_domains: ti.associated_domains || [],
-    associated_files:   ti.associated_files   || [],
-    ip_domain:          ti.ip,
-    registrar:          ti.registrar,
-    created:            ti.created,
-    subdomains_count:   ti.subdomains_count,
-    global_risk_score:  ti.global_risk_score,
-    domain:             ti.domain,
-    file_type:          ti.file_type,
-    first_seen:         ti.first_seen,
-    mitre_attack:       ti.mitre_attack || [],
-    gsb_threats:        ti.detection?.google_safe_browsing?.threats || [],
-    phishtank:          ti.detection?.phishtank?.verdict,
-    mail_domain:        ti.domain,
-    provider:           ti.provider,
-    mx:                 ti.security?.mx,
-    spf:                ti.security?.spf,
-    dmarc:              ti.security?.dmarc,
-    alerts:             ti.alerts      || [],
-    severity:           ti.severity,
-    cvss_score:         ti.cvss_score,
-    cvss_vector:        ti.cvss_vector,
-    cwe:                ti.cwe         || [],
-    published:          ti.published,
-    phishing_signals:   ti.phishing_signals || [],
-    hosting_platform:   ti.hosting_platform,
-  };
-}
-
-// ── Hook ──────────────────────────────────────────────────────────────────────
-
-/**
- * Gère toute la logique du chat :
- * - messages + scroll automatique
- * - envoi de message + appel API
- * - gestion IOC actif
- * - nouveau chat
- *
- * Remplace toute la logique inline de ChatbotPage.jsx
- */
 export function useChat(selectedModel) {
   const [messages,  setMessages]  = useState([makeInitMsg()]);
   const [input,     setInput]     = useState("");
@@ -88,7 +30,6 @@ export function useChat(selectedModel) {
   const [activeIOC, setActiveIOC] = useState(null);
   const bottomRef = useRef();
 
-  // Scroll automatique à chaque nouveau message
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -118,8 +59,17 @@ export function useChat(selectedModel) {
       const data = await chatbotApi.message(clean, null, selectedModel);
 
       const botMsg = (data.type && data.type !== "question")
-        ? { id: Date.now() + 1, role: "bot", content: data.message || `Analyse terminée — ${data.type} : ${clean}`, timestamp: getTime(), report: buildReport(data, clean) }
-        : { id: Date.now() + 1, role: "bot", content: data.message || "Pas de réponse.", timestamp: getTime() };
+        ? {
+            id: Date.now() + 1, role: "bot",
+            content: data.message || `Analyse terminée — ${data.type} : ${clean}`,
+            timestamp: getTime(),
+            report: buildReport(data, clean),  // ← importé depuis utils/reportUtils
+          }
+        : {
+            id: Date.now() + 1, role: "bot",
+            content: data.message || "Pas de réponse.",
+            timestamp: getTime(),
+          };
 
       setMessages(prev => [...prev, botMsg]);
     } catch (e) {

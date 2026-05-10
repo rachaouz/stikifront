@@ -1,317 +1,15 @@
-import { useState } from "react";
-import { t } from "./chatTheme";
+import { memo }                           from "react";
+import { t }                              from "./chatTheme";
+import VerdictBadge                       from "./VerdictBadge";
+import { dlCSV, dlJSON, dlPDF }           from "../../utils/exportUtils";
+import { IOC_TYPE_META, scoreColor }      from "../../constants";
 
-function VerdictBadge({ verdict }) {
-  const map = {
-    malicious:  { bg: "rgba(248,113,113,0.1)", border: "#f87171", text: "#fca5a5", label: "⚠ MALICIEUX" },
-    clean:      { bg: "rgba(74,222,128,0.1)",  border: "#4ade80", text: "#86efac", label: "✓ PROPRE"    },
-    suspicious: { bg: "rgba(251,146,60,0.1)",  border: "#fb923c", text: "#fdba74", label: "⚡ SUSPECT"  },
-    critical:   { bg: "rgba(239,68,68,0.12)",  border: "#ef4444", text: "#fca5a5", label: "🔴 CRITIQUE" },
-  };
-  const c = map[verdict] || map.suspicious;
-  return (
-    <span style={{
-      display: "inline-flex", alignItems: "center", gap: "4px",
-      padding: "3px 10px", borderRadius: "4px",
-      background: c.bg, border: `1px solid ${c.border}`, color: c.text,
-      fontSize: "9px", fontWeight: "700", letterSpacing: "2px",
-      fontFamily: "'JetBrains Mono', monospace", whiteSpace: "nowrap",
-    }}>{c.label}</span>
-  );
-}
-
-// ── Export helpers ────────────────────────────────────────────────────────────
-function dlCSV(report) {
-  const rows = [
-    ["Champ", "Valeur"],
-    ["Indicateur", report.ioc],
-    ["Type", report.type || ""],
-    ["Verdict", report.verdict],
-    ["Score", report.score],
-    ["Niveau menace", report.threat_level || ""],
-    ["Tags", (report.tags || []).join(", ")],
-    ["Message", (report.message || "").replace(/"/g, "'")],
-    ...(report.isp        ? [["ISP", report.isp]] : []),
-    ...(report.asn        ? [["ASN", report.asn]] : []),
-    ...(report.country    ? [["Pays", report.country]] : []),
-    ...(report.vt_malicious != null ? [["VT Malicious", report.vt_malicious]] : []),
-    ...(report.vt_suspicious != null ? [["VT Suspicious", report.vt_suspicious]] : []),
-    ...(report.vt_reputation != null ? [["VT Réputation", report.vt_reputation]] : []),
-    ...(report.vt_tags?.length ? [["VT Tags", report.vt_tags.join(", ")]] : []),
-    ...(report.abuseipdb  != null ? [["AbuseIPDB Score", report.abuseipdb]] : []),
-    ...(report.otx_pulses != null ? [["OTX Pulses", report.otx_pulses]] : []),
-    ...(report.file_type  ? [["Type Fichier", report.file_type]] : []),
-    ...(report.first_seen ? [["Premier vu", report.first_seen]] : []),
-    ...(report.vt_undetected != null ? [["VT Undetected", report.vt_undetected]] : []),
-    ...(report.registrar  ? [["Registrar", report.registrar]] : []),
-    ...(report.created    ? [["Créé le", report.created]] : []),
-    ...(report.subdomains_count != null ? [["Sous-domaines", report.subdomains_count]] : []),
-    ...(report.domain     ? [["Domaine", report.domain]] : []),
-    ...(report.ip         ? [["IP", report.ip]] : []),
-    ...(report.hosting_platform ? [["Plateforme hosting", report.hosting_platform]] : []),
-    ...((report.phishing_signals || []).map((s, i) => [`Signal phishing ${i+1}`, s])),
-    ...(report.gsb_threats ? [["Google Safe Browsing", report.gsb_threats.join(", ")]] : []),
-    ...(report.phishtank  ? [["PhishTank", report.phishtank]] : []),
-    ...(report.mail_domain ? [["Mail Domain", report.mail_domain]] : []),
-    ...(report.provider   ? [["Provider", report.provider]] : []),
-    ...(report.mx         ? [["MX", report.mx]] : []),
-    ...(report.spf        ? [["SPF", report.spf]] : []),
-    ...(report.dmarc      ? [["DMARC", report.dmarc]] : []),
-    ...(report.severity   ? [["Sévérité", report.severity]] : []),
-    ...(report.cvss_score != null ? [["CVSS Score", report.cvss_score]] : []),
-    ...(report.cvss_vector ? [["CVSS Vector", report.cvss_vector]] : []),
-    ...(report.cwe        ? [["CWE", report.cwe.join(", ")]] : []),
-    ...(report.published  ? [["Publié le", report.published]] : []),
-    ...((report.associated_domains || []).map((d,i) => [`Domaine associé ${i+1}`, d])),
-    ...((report.associated_files   || []).map((f,i) => [`Fichier associé ${i+1}`, f])),
-    ...((report.alerts             || []).map((a,i) => [`Alerte ${i+1}`, a])),
-    ...((report.mitre_attack       || []).map(m => [`MITRE ${m.technique_id}`, `${m.technique_name} (${m.matched_on})`])),
-  ];
-  const csv = rows.map(r => r.map(v => `"${v}"`).join(",")).join("\n");
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" }));
-  a.download = `socilis_${report.ioc?.replace(/[^a-z0-9]/gi,"_")}.csv`;
-  a.click();
-}
-
-function dlJSON(report) {
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: "application/json" }));
-  a.download = `socilis_${report.ioc?.replace(/[^a-z0-9]/gi,"_")}.json`;
-  a.click();
-}
-
-function dlPDF(report) {
-  const now = new Date().toLocaleDateString("fr-FR", { day:"2-digit", month:"long", year:"numeric", hour:"2-digit", minute:"2-digit" });
-  const sc = report.score || 0;
-  const scColor = sc >= 80 ? "#ef4444" : sc >= 60 ? "#f97316" : sc >= 35 ? "#eab308" : "#22c55e";
-  const threatMeta = {
-    critical: { color:"#ef4444", bg:"rgba(239,68,68,0.1)",  border:"rgba(239,68,68,0.4)",  label:"CRITIQUE" },
-    high:     { color:"#f97316", bg:"rgba(249,115,22,0.1)", border:"rgba(249,115,22,0.4)", label:"ÉLEVÉ"    },
-    medium:   { color:"#eab308", bg:"rgba(234,179,8,0.1)",  border:"rgba(234,179,8,0.4)",  label:"MOYEN"    },
-    low:      { color:"#22c55e", bg:"rgba(34,197,94,0.1)",  border:"rgba(34,197,94,0.4)",  label:"FAIBLE"   },
-    malicious:{ color:"#ef4444", bg:"rgba(239,68,68,0.1)",  border:"rgba(239,68,68,0.4)",  label:"MALICIEUX"},
-    clean:    { color:"#22c55e", bg:"rgba(34,197,94,0.1)",  border:"rgba(34,197,94,0.4)",  label:"PROPRE"   },
-  };
-  const tm = threatMeta[report.threat_level] || threatMeta[report.verdict] || threatMeta.medium;
-  const typeIcons = { ip:"◈", hash:"⬡", domain:"◎", url:"⬔", mail:"✉", cve:"⚠" };
-  const typeColors = { ip:"#22d3ee", hash:"#a78bfa", domain:"#fb923c", url:"#4ade80", mail:"#f472b6", cve:"#ef4444" };
-  const typeIcon  = typeIcons[report.type]  || "◆";
-  const typeColor = typeColors[report.type] || "#00a8ff";
-
-  const row = (label, value, color) =>
-    `<div style="display:flex;gap:0;margin-bottom:7px;border-bottom:1px solid rgba(0,168,255,0.06);padding-bottom:7px">
-      <span style="min-width:160px;font-size:9px;letter-spacing:1.5px;color:rgba(160,210,255,0.35)">${label}</span>
-      <span style="font-size:10px;color:${color||"#e2f0ff"};word-break:break-all">${value}</span>
-    </div>`;
-
-  const section = (title, content) =>
-    `<div style="margin-bottom:20px">
-      <div style="font-size:8px;letter-spacing:3px;color:rgba(160,210,255,0.3);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(0,168,255,0.08)">${title}</div>
-      ${content}
-    </div>`;
-
-  const tagHtml = (report.tags||[]).map(tag =>
-    `<span style="display:inline-block;padding:2px 9px;background:rgba(0,168,255,0.07);border:1px solid rgba(0,168,255,0.2);border-radius:3px;color:#00a8ff;font-size:9px;margin:2px">${tag}</span>`
-  ).join("");
-
-  let tiSection = "";
-
-  if (report.type === "ip") {
-    tiSection += section("INFORMATIONS RÉSEAU",
-      (report.isp     ? row("ISP", report.isp) : "") +
-      (report.asn     ? row("ASN", report.asn) : "") +
-      (report.country ? row("PAYS", report.country) : row("PAYS", "N/A"))
-    );
-    tiSection += section("RÉPUTATION",
-      row("VT MALICIOUS",   report.vt_malicious  ?? 0, report.vt_malicious  > 0 ? "#ef4444" : "#22c55e") +
-      row("VT SUSPICIOUS",  report.vt_suspicious ?? 0, report.vt_suspicious > 0 ? "#eab308" : "#22c55e") +
-      row("ABUSEIPDB SCORE",report.abuseipdb     ?? 0, report.abuseipdb     > 0 ? "#f97316" : "#22c55e") +
-      row("OTX PULSES",     report.otx_pulses    ?? 0) +
-      (report.vt_reputation != null ? row("VT RÉPUTATION", report.vt_reputation, report.vt_reputation < 0 ? "#ef4444" : "#22c55e") : "")
-    );
-    if ((report.vt_tags||[]).length > 0)
-      tiSection += section("TAGS VIRUSTOTAL",
-        `<div style="display:flex;flex-wrap:wrap;gap:5px">${report.vt_tags.map(tag =>
-          `<span style="padding:2px 9px;background:rgba(0,212,255,0.07);border:1px solid rgba(0,212,255,0.2);border-radius:3px;color:#00d4ff;font-size:9px">${tag}</span>`
-        ).join("")}</div>`
-      );
-    if ((report.associated_domains||[]).length > 0)
-      tiSection += section("DOMAINES ASSOCIÉS",
-        report.associated_domains.map(d => `<div style="font-size:9px;color:#fb923c;margin-bottom:4px">→ ${d}</div>`).join("")
-      );
-    if ((report.associated_files||[]).length > 0)
-      tiSection += section("FICHIERS ASSOCIÉS",
-        report.associated_files.map(f => `<div style="font-size:8px;color:rgba(160,210,255,0.5);margin-bottom:3px;word-break:break-all;font-family:monospace">${f}</div>`).join("")
-      );
-  }
-
-  if (report.type === "hash") {
-    tiSection += section("INFORMATIONS FICHIER",
-      (report.file_type  ? row("TYPE", report.file_type) : "") +
-      (report.first_seen ? row("PREMIER VU", report.first_seen) : "")
-    );
-    tiSection += section("DÉTECTIONS",
-      row("VT MALICIOUS",  report.vt_malicious  ?? 0, report.vt_malicious  > 0 ? "#ef4444" : "#22c55e") +
-      row("VT UNDETECTED", report.vt_undetected ?? 0) +
-      row("OTX PULSES",    report.otx_pulses    ?? 0)
-    );
-    if ((report.mitre_attack||[]).length > 0)
-      tiSection += section("MITRE ATT&CK",
-        report.mitre_attack.map(m =>
-          `<div style="display:flex;gap:8px;margin-bottom:8px;padding:8px;background:rgba(167,139,250,0.05);border:1px solid rgba(167,139,250,0.15);border-radius:4px">
-            <span style="padding:2px 8px;background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.3);border-radius:3px;color:#a78bfa;font-size:9px;white-space:nowrap;flex-shrink:0">${m.technique_id}</span>
-            <div>
-              <div style="font-size:9px;color:#e2f0ff;margin-bottom:2px">${m.technique_name}</div>
-              <div style="font-size:8px;color:rgba(160,210,255,0.35)">source: ${m.source} · matched: ${m.matched_on}</div>
-            </div>
-          </div>`
-        ).join("")
-      );
-  }
-
-  if (report.type === "domain") {
-    tiSection += section("INFORMATIONS DOMAINE",
-      (report.registrar ? row("REGISTRAR", report.registrar) : "") +
-      (report.created   ? row("DATE CRÉATION", report.created) : "") +
-      (report.ip_domain ? row("IP", report.ip_domain) : "") +
-      (report.subdomains_count != null ? row("SOUS-DOMAINES", report.subdomains_count) : "")
-    );
-    tiSection += section("DÉTECTIONS",
-      row("VT MALICIOUS", report.vt_malicious ?? 0, report.vt_malicious > 0 ? "#ef4444" : "#22c55e")
-    );
-  }
-
-  if (report.type === "url") {
-    tiSection += section("INFORMATIONS URL",
-      (report.domain ? row("DOMAINE", report.domain) : "") +
-      (report.ip     ? row("IP", report.ip) : "") +
-      (report.hosting_platform ? row("PLATEFORME HOSTING", report.hosting_platform, "#fb923c") : "")
-    );
-    if ((report.phishing_signals||[]).length > 0)
-      tiSection += section("SIGNAUX PHISHING",
-        report.phishing_signals.map(s =>
-          `<div style="padding:5px 10px;background:rgba(251,146,60,0.06);border:1px solid rgba(251,146,60,0.2);border-radius:3px;color:#fdba74;font-size:9px;margin-bottom:4px">⚠ ${s}</div>`
-        ).join("")
-      );
-    tiSection += section("DÉTECTIONS",
-      row("VT MALICIOUS",  report.vt_malicious  ?? 0, report.vt_malicious  > 0 ? "#ef4444" : "#22c55e") +
-      row("VT SUSPICIOUS", report.vt_suspicious ?? 0, report.vt_suspicious > 0 ? "#eab308" : "#22c55e") +
-      ((report.gsb_threats||[]).length > 0 ? row("GOOGLE SAFE BROWSING", report.gsb_threats.join(", "), "#ef4444") : "") +
-      (report.phishtank ? row("PHISHTANK", report.phishtank, report.phishtank==="clean"?"#22c55e":"#ef4444") : "")
-    );
-  }
-
-  if (report.type === "mail") {
-    tiSection += section("INFORMATIONS EMAIL",
-      (report.mail_domain ? row("DOMAINE", report.mail_domain) : "") +
-      (report.provider    ? row("PROVIDER", report.provider) : "")
-    );
-    tiSection += section("AUTHENTIFICATION",
-      `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
-        ${["mx","spf","dmarc"].map(k => {
-          const v = report[k] || "missing";
-          const ok = v !== "missing";
-          return `<div style="padding:8px;background:${ok?"rgba(34,197,94,0.06)":"rgba(239,68,68,0.06)"};border:1px solid ${ok?"rgba(34,197,94,0.2)":"rgba(239,68,68,0.2)"};border-radius:5px;text-align:center">
-            <div style="font-size:8px;letter-spacing:1px;color:rgba(160,210,255,0.35);margin-bottom:4px">${k.toUpperCase()}</div>
-            <div style="font-size:10px;font-weight:700;color:${ok?"#22c55e":"#ef4444"}">${v.toUpperCase()}</div>
-          </div>`;
-        }).join("")}
-      </div>`
-    );
-    if ((report.alerts||[]).length > 0)
-      tiSection += section("ALERTES",
-        report.alerts.map(a =>
-          `<div style="padding:6px 10px;background:rgba(248,113,113,0.06);border:1px solid rgba(248,113,113,0.15);border-radius:3px;color:#f87171;font-size:9px;margin-bottom:4px">⚠ ${a}</div>`
-        ).join("")
-      );
-  }
-
-  if (report.type === "cve") {
-    tiSection += section("INFORMATIONS CVE",
-      (report.severity   ? row("SÉVÉRITÉ", report.severity, "#ef4444") : "") +
-      (report.cvss_score != null ? row("CVSS SCORE", report.cvss_score, report.cvss_score>=9?"#ef4444":report.cvss_score>=7?"#f97316":"#eab308") : "") +
-      (report.cvss_vector ? row("CVSS VECTOR", report.cvss_vector) : "") +
-      ((report.cwe||[]).length > 0 ? row("CWE", report.cwe.join(", ")) : "") +
-      (report.published  ? row("PUBLIÉ LE", report.published) : "")
-    );
-  }
-
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/>
-<title>SOCILIS — Rapport ${report.ioc}</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{background:#050b12;color:#e2f0ff;font-family:'JetBrains Mono',monospace;padding:40px 48px;font-size:11px;line-height:1.6;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  @page{size:A4;margin:20mm}
-  @media print{body{padding:0}.no-print{display:none!important}}
-</style></head><body>
-
-<div class="no-print" style="position:fixed;top:16px;right:16px;z-index:999">
-  <button onclick="window.print()" style="background:#00a8ff;border:none;color:#fff;padding:8px 20px;border-radius:5px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:1px">🖨 IMPRIMER / PDF</button>
-</div>
-
-<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;padding-bottom:24px;border-bottom:1px solid rgba(0,168,255,0.15)">
-  <div>
-    <div style="font-size:8px;letter-spacing:4px;color:rgba(160,210,255,0.3);margin-bottom:8px">SOCILIS THREAT INTELLIGENCE PLATFORM</div>
-    <div style="font-size:24px;font-weight:700;color:#00a8ff;letter-spacing:2px;margin-bottom:4px">RAPPORT D'ANALYSE IOC</div>
-    <div style="font-size:9px;color:rgba(160,210,255,0.35);letter-spacing:2px">GÉNÉRÉ LE ${now}</div>
-  </div>
-  <div style="padding:8px 18px;background:${tm.bg};border:1px solid ${tm.border};border-radius:6px;text-align:center">
-    <div style="font-size:8px;letter-spacing:2px;color:rgba(160,210,255,0.3);margin-bottom:4px">NIVEAU DE MENACE</div>
-    <div style="font-size:14px;font-weight:700;color:${tm.color};letter-spacing:2px">${tm.label}</div>
-  </div>
-</div>
-
-<div style="background:rgba(4,12,24,0.98);border:1px solid ${tm.border};border-radius:10px;padding:24px;margin-bottom:24px">
-  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
-    <div style="flex:1">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-        <span style="color:${typeColor};font-size:18px">${typeIcon}</span>
-        <span style="font-size:8px;letter-spacing:3px;color:${typeColor}">${(report.type||"").toUpperCase()}</span>
-      </div>
-      <div style="font-size:16px;font-weight:700;color:#00a8ff;word-break:break-all;margin-bottom:12px">${report.ioc}</div>
-      ${tagHtml ? `<div style="margin-top:8px">${tagHtml}</div>` : ""}
-    </div>
-    <div style="flex-shrink:0;text-align:center">
-      <div style="font-size:8px;letter-spacing:2px;color:rgba(160,210,255,0.3);margin-bottom:8px">THREAT SCORE</div>
-      <div style="font-size:42px;font-weight:700;color:${scColor};line-height:1">${sc}</div>
-      <div style="font-size:10px;color:rgba(160,210,255,0.3)">/100</div>
-      <div style="width:80px;height:4px;background:rgba(255,255,255,0.05);border-radius:2px;margin:10px auto 0;overflow:hidden">
-        <div style="height:100%;width:${sc}%;background:${scColor};border-radius:2px"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div style="padding:14px 18px;background:rgba(0,168,255,0.03);border-left:2px solid rgba(0,168,255,0.35);border-radius:0 6px 6px 0;margin-bottom:24px">
-  <div style="font-size:8px;letter-spacing:3px;color:rgba(160,210,255,0.3);margin-bottom:6px">ANALYSE</div>
-  <div style="font-size:10px;color:rgba(160,210,255,0.7);line-height:1.8">${report.message || ""}</div>
-</div>
-
-${tiSection}
-
-<div style="margin-top:48px;padding-top:16px;border-top:1px solid rgba(0,168,255,0.1);display:flex;justify-content:space-between">
-  <span style="font-size:8px;letter-spacing:2px;color:rgba(160,210,255,0.2)">SOCILIS THREAT INTELLIGENCE · RAPPORT CONFIDENTIEL</span>
-  <span style="font-size:8px;letter-spacing:2px;color:rgba(160,210,255,0.2)">${new Date().getFullYear()}</span>
-</div>
-
-</body></html>`;
-
-  const w = window.open("", "_blank");
-  w.document.write(html);
-  w.document.close();
-}
-
-// ── Report Card ───────────────────────────────────────────────────────────────
+// ── ReportCard ────────────────────────────────────────────────────────────────
 function ReportCard({ report, darkMode }) {
-  const th = t(darkMode);
-  const sc = report.score || 0;
-  const scColor = sc >= 80 ? "#ef4444" : sc >= 60 ? "#f97316" : sc >= 35 ? "#eab308" : "#22c55e";
-  const typeColors = { ip:"#22d3ee", hash:"#a78bfa", domain:"#fb923c", url:"#4ade80", mail:"#f472b6", cve:"#ef4444" };
-  const typeIcons  = { ip:"◈", hash:"⬡", domain:"◎", url:"⬔", mail:"✉", cve:"⚠" };
-  const typeColor  = typeColors[report.type] || "#00a8ff";
-  const typeIcon   = typeIcons[report.type]  || "◆";
+  const th       = t(darkMode);
+  const sc       = report.score || 0;
+  const scColor  = scoreColor(sc);                              // ← depuis constants
+  const tyM      = IOC_TYPE_META[report.type] || { color: "#00a8ff", symbol: "◆", icon: "IOC" }; // ← depuis constants
 
   const Field = ({ label, value, color, mono }) => (
     <div style={{ marginBottom:"8px" }}>
@@ -363,8 +61,8 @@ function ReportCard({ report, darkMode }) {
 
       {/* ── IOC + Type ── */}
       <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"10px" }}>
-        <span style={{ color:typeColor, fontSize:"14px" }}>{typeIcon}</span>
-        <span style={{ fontSize:"8px", letterSpacing:"2px", color:typeColor }}>{(report.type||"").toUpperCase()}</span>
+        <span style={{ color:tyM.color, fontSize:"14px" }}>{tyM.symbol}</span>
+        <span style={{ fontSize:"8px", letterSpacing:"2px", color:tyM.color }}>{(report.type||"").toUpperCase()}</span>
         <span style={{ color:th.accent, background:th.accentSubtle, border:`1px solid ${th.border}`, padding:"2px 10px", borderRadius:"3px", fontSize:"11px", wordBreak:"break-all" }}>{report.ioc}</span>
       </div>
 
@@ -515,7 +213,7 @@ function ReportCard({ report, darkMode }) {
         <Section title="AUTHENTIFICATION">
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:"8px", marginBottom:"8px" }}>
             {["mx","spf","dmarc"].map(k => {
-              const v = report[k] || "missing";
+              const v  = report[k] || "missing";
               const ok = v !== "missing";
               return (
                 <div key={k} style={{ padding:"8px", background:ok?"rgba(34,197,94,0.06)":"rgba(239,68,68,0.06)", border:`1px solid ${ok?"rgba(34,197,94,0.2)":"rgba(239,68,68,0.2)"}`, borderRadius:"5px", textAlign:"center" }}>
@@ -552,9 +250,9 @@ function ReportCard({ report, darkMode }) {
   );
 }
 
-// ── Message Bubble ────────────────────────────────────────────────────────────
-export default function MessageBubble({ msg, darkMode }) {
-  const th = t(darkMode);
+// ── MessageBubble ─────────────────────────────────────────────────────────────
+const MessageBubble = memo(function MessageBubble({ msg, darkMode }) {
+  const th     = t(darkMode);
   const isUser = msg.role === "user";
 
   return (
@@ -580,4 +278,6 @@ export default function MessageBubble({ msg, darkMode }) {
       )}
     </div>
   );
-}
+});
+
+export default MessageBubble;

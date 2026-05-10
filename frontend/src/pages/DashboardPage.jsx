@@ -1,33 +1,38 @@
-import { useState }            from "react";
-import { useAuth }             from "../context/AuthContext";
-import { getDashboardTheme }   from "../styles/dashboardTheme";
-import { useDarkMode }         from "../context/DarkModeContext";
-import { useDashboardData }    from "../hooks/useDashboardData";
-import { useResetRequests }    from "../hooks/useResetRequests";
-import LoadingScreen           from "../components/dashboard/LoadingScreen";
-import TopBar                  from "../components/dashboard/TopBar";
-import StatCard                from "../components/dashboard/StatCard";
-import ThreatBar               from "../components/dashboard/ThreatBar";
-import IOCList                 from "../components/dashboard/IOCList";
-import DetailPanel             from "../components/dashboard/DetailPanel";
-import ResetRequestsPanel      from "../components/dashboard/ResetRequestsPanel";
-import ApproveModal            from "../components/dashboard/ApproveModal";
+import { useState, useMemo }        from "react";
+import { useAuth }                  from "../context/AuthContext";
+import { getDashboardTheme }        from "../styles/dashboardTheme";
+import { useDarkMode }              from "../context/DarkModeContext";
+import { useDashboardData }         from "../hooks/useDashboardData";
+import { useResetRequests }         from "../hooks/useResetRequests";
+import LoadingScreen                from "../components/dashboard/LoadingScreen";
+import TopBar                       from "../components/dashboard/TopBar";
+import StatCard                     from "../components/dashboard/StatCard";
+import ThreatBar                    from "../components/dashboard/ThreatBar";
+import IOCList                      from "../components/dashboard/IOCList";
+import DetailPanel                  from "../components/dashboard/DetailPanel";
+import ResetRequestsPanel           from "../components/dashboard/ResetRequestsPanel";
+import ApproveModal                 from "../components/dashboard/ApproveModal";
 
 export default function DashboardPage() {
-  const { isAdmin }                   = useAuth();
+  const { isAdmin }                       = useAuth();
   const { darkMode, setDarkMode, toggle } = useDarkMode();
-  const { loading, scans, stats }     = useDashboardData();
-  const resetCtx                      = useResetRequests(isAdmin);
-  const C                             = getDashboardTheme(darkMode);
+  const { loading, scans, stats }         = useDashboardData();
+  const resetCtx                          = useResetRequests(isAdmin);
+
+  // useMemo : getDashboardTheme() n'est recalculé que si darkMode change
+  const C = useMemo(() => getDashboardTheme(darkMode), [darkMode]);
 
   const [selectedIOC, setSelectedIOC] = useState(null);
   const [filter,      setFilter]      = useState("all");
 
-  const totalScans    = stats?.total_scans         || scans.length;
-  const avgScore      = stats?.avg_risk_score       || 0;
-  const criticalCount = stats?.by_verdict?.critical || 0;
-  const highCount     = stats?.by_verdict?.high     || 0;
-  const lowCount      = stats?.by_verdict?.low      || 0;
+  // useMemo : les stats ne sont recalculées que si stats/scans changent
+  const { totalScans, avgScore, criticalCount, highCount, lowCount } = useMemo(() => ({
+    totalScans:    stats?.total_scans         || scans.length,
+    avgScore:      stats?.avg_risk_score       || 0,
+    criticalCount: stats?.by_verdict?.critical || 0,
+    highCount:     stats?.by_verdict?.high     || 0,
+    lowCount:      stats?.by_verdict?.low      || 0,
+  }), [stats, scans]);
 
   if (loading) return <LoadingScreen C={C} />;
 
@@ -72,7 +77,6 @@ export default function DashboardPage() {
           C={C}
         />
 
-        {/* Panneau détail */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
           <div style={{ padding: "12px 24px", borderBottom: `1px solid ${C.border}`, background: C.filtersBar, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span style={{ fontSize: "0.58rem", letterSpacing: "0.2em", color: C.textFaint }}>DÉTAIL IOC</span>

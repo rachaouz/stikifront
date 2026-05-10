@@ -1,8 +1,10 @@
+import { memo } from "react";
+
 /**
- * Carte statistique affichée dans la barre du haut du Dashboard.
- * Props : label, value, color, C (thème)
+ * Carte statistique du Dashboard.
+ * memo() : ne se re-rend que si label/value/color/C changent réellement.
  */
-export default function StatCard({ label, value, color, C }) {
+const StatCard = memo(function StatCard({ label, value, color, C }) {
   return (
     <div style={{
       flex: "1 1 100px", minWidth: "100px",
@@ -27,4 +29,6 @@ export default function StatCard({ label, value, color, C }) {
       </span>
     </div>
   );
-}
+});
+
+export default StatCard;
