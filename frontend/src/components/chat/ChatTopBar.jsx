@@ -1,21 +1,18 @@
-import { t } from "./chatTheme";
+import { t }             from "./chatTheme";
+import { IOC_TYPE_META } from "../../constants";
 
-const IOC_TYPES = [
-  { type: "HASH",   icon: "⬡", color: "#a78bfa" },
-  { type: "IP",     icon: "◈", color: "#22d3ee" },
-  { type: "URL",    icon: "⬔", color: "#4ade80" },
-  { type: "DOMAIN", icon: "◎", color: "#fb923c" },
-  { type: "CVE",    icon: "⚠", color: "#f87171" },
-  { type: "MAIL",   icon: "✉", color: "#f472b6" },
-];
+const IOC_CHIPS = Object.entries(IOC_TYPE_META).map(([type, meta]) => ({
+  type:  type.toUpperCase(),
+  key:   type,
+  icon:  meta.symbol,
+  color: meta.color,
+}));
 
 export default function ChatTopBar({
   darkMode, sidebarOpen, onToggleSidebar, onOpenSettings, activeIOC, onSelectIOC,
 }) {
   const th = t(darkMode);
-
-  // FIX toggle: cliquer sur le chip actif le désélectionne
-  const handleChipClick = (type) => onSelectIOC(activeIOC === type ? null : type);
+  const handleChipClick = (key) => onSelectIOC(activeIOC === key ? null : key);
 
   return (
     <div style={{
@@ -29,7 +26,8 @@ export default function ChatTopBar({
         </button>
         <span style={{ fontSize:"9px", color:th.textFaint, letterSpacing:"2px", fontFamily:"'JetBrains Mono',monospace" }}>SESSION ACTIVE</span>
         <div style={{ flex:1 }} />
-        <button onClick={onOpenSettings} style={{ display:"flex", alignItems:"center", gap:"6px", background:"transparent", border:`1px solid ${th.border}`, borderRadius:"6px", padding:"5px 12px", color:th.textMuted, fontSize:"9px", letterSpacing:"2px", cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", transition:"all 0.2s" }}
+        <button onClick={onOpenSettings}
+          style={{ display:"flex", alignItems:"center", gap:"6px", background:"transparent", border:`1px solid ${th.border}`, borderRadius:"6px", padding:"5px 12px", color:th.textMuted, fontSize:"9px", letterSpacing:"2px", cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", transition:"all 0.2s" }}
           onMouseEnter={e=>{ e.currentTarget.style.borderColor=th.borderActive; e.currentTarget.style.color=th.accent; e.currentTarget.style.background=th.accentSubtle; }}
           onMouseLeave={e=>{ e.currentTarget.style.borderColor=th.border; e.currentTarget.style.color=th.textMuted; e.currentTarget.style.background="transparent"; }}
         >⚙ PARAMÈTRES</button>
@@ -37,15 +35,14 @@ export default function ChatTopBar({
 
       <div style={{ padding:"8px 14px", display:"flex", gap:"6px", flexWrap:"wrap", alignItems:"center" }}>
         <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:"8px", color:th.textFaint, letterSpacing:"2px", marginRight:"4px" }}>TYPE IOC :</span>
-        {IOC_TYPES.map(({ type, icon, color }) => {
-          const isActive = activeIOC === type;
+        {IOC_CHIPS.map(({ type, key, icon, color }) => {
+          const isActive = activeIOC === key;
           return (
-            <button key={type} onClick={() => handleChipClick(type)} style={{
+            <button key={key} onClick={() => handleChipClick(key)} style={{
               display:"flex", alignItems:"center", gap:"5px", padding:"4px 12px",
               background: isActive ? `${color}18` : "transparent",
               border: isActive ? `1px solid ${color}` : `1px solid ${th.border}`,
-              borderRadius:"4px",
-              color: isActive ? color : th.textMuted,
+              borderRadius:"4px", color: isActive ? color : th.textMuted,
               fontSize:"9px", letterSpacing:"2px", cursor:"pointer",
               fontFamily:"'JetBrains Mono',monospace",
               fontWeight: isActive ? "700" : "400", transition:"all 0.18s",

@@ -3,14 +3,12 @@ import { useNavigate }           from "react-router-dom";
 import { t }                     from "./chatTheme";
 import { useSidebarHistory }     from "../../hooks/useSidebarHistory";
 import { highlightMatch }        from "../../utils/formatUtils";
-
+import { LOGO_URL } from "../../constants";
 /**
- * ChatSidebar — composant d'affichage uniquement.
- *
  * Avant : fetch + delete + formatage + rendu tous dans ce fichier.
  * Après : la logique métier est dans useSidebarHistory(),
  *         les helpers de formatage sont dans utils/formatUtils.js.
- *         Ce composant ne fait plus que du rendu.
+ *       il ne fait plus que du rendu.
  */
 export default function ChatSidebar({ open, darkMode, selectedChat, onSelectChat, onNewChat }) {
   const th = t(darkMode);
@@ -46,7 +44,7 @@ export default function ChatSidebar({ open, darkMode, selectedChat, onSelectChat
             display: "flex", alignItems: "center", gap: "10px",
           }}>
             <img
-              src="/logo socilis.webp"
+              src={LOGO_URL}
               alt="SOCILIS"
               style={{ width: "32px", height: "32px", objectFit: "contain" }}
             />

@@ -1,67 +1,48 @@
-// src/context/AuthContext.jsx
-// Centralise l'état d'authentification et le rôle utilisateur pour tout le frontend.
-// Le backend est la source de vérité — ce contexte ne fait que refléter et persister
-// côté client ce que le backend a déjà validé.
-
 import { createContext, useContext, useState, useCallback } from "react";
 
-// ─── Constantes de rôles ───────────────────────────────────────────────────
-// Ajoutez ici de nouveaux rôles à mesure que le backend en introduit.
-export const ROLES = Object.freeze({
-  ADMIN:    0,
-  USER:     1,
-  // ANALYST: 2,  // exemple d'extension future
-});
+export const ROLES = Object.freeze({ ADMIN: 0, USER: 1 });
 
-const STORAGE_KEY = "socilis_auth";
+const STORAGE_KEY   = "socilis_auth";
+const TOKEN_KEY     = "access_token";
 
-// ─── Helpers de persistance ───────────────────────────────────────────────
 function loadSession() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
-function saveSession(data) {
+function saveSession(user, token) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch {
-    // Si localStorage est indisponible (ex: mode privé strict), on continue sans persistance.
-  }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+    // access_token séparé pour que client.js puisse le lire via authHeaders()
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+  } catch { /* noop */ }
 }
 
 function clearSession() {
   try {
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem("role");
   } catch { /* noop */ }
 }
 
-// ─── Context ──────────────────────────────────────────────────────────────
 const AuthContext = createContext(null);
 
-/**
- * AuthProvider  — à placer en haut de l'arbre (dans main.jsx, autour de <App />).
- *
- * Fournit :
- *   user        → objet utilisateur (tel que renvoyé par le backend) ou null
- *   role        → raccourci vers user.role (ou null)
- *   isAdmin     → booléen : role === ROLES.ADMIN
- *   isAuthenticated → booléen
- *   login(userFromBackend) → persiste la session
- *   logout()              → efface la session et redirige (via callback)
- */
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => loadSession());
 
-  const login = useCallback((userFromBackend) => {
-    // Le backend renvoie un objet contenant au minimum : { role, email, ... }
-    // On le stocke tel quel — sans transformation métier.
-    setUser(userFromBackend);
-    saveSession(userFromBackend);
-  }, []);
+const login = useCallback((dataFromBackend) => {
+  const { access_token, role, email } = dataFromBackend;
+  const user = {
+    email:  email ?? "",
+    role:   role === "superadmin" ? ROLES.ADMIN : ROLES.USER,
+    name:   email ? email.split("@")[0] : "Analyste SOC",
+  };
+  setUser(user);
+  saveSession(user, access_token);
+}, []);
 
   const logout = useCallback(() => {
     setUser(null);
@@ -84,10 +65,6 @@ export function AuthProvider({ children }) {
   );
 }
 
-/**
- * useAuth — hook principal pour consommer le contexte.
- * Lance une erreur explicite si utilisé hors du provider.
- */
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used inside <AuthProvider>");

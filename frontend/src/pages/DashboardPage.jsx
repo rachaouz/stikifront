@@ -1,31 +1,29 @@
-import { useState, useMemo }        from "react";
-import { useAuth }                  from "../context/AuthContext";
-import { getDashboardTheme }        from "../styles/dashboardTheme";
-import { useDarkMode }              from "../context/DarkModeContext";
-import { useDashboardData }         from "../hooks/useDashboardData";
-import { useResetRequests }         from "../hooks/useResetRequests";
-import LoadingScreen                from "../components/dashboard/LoadingScreen";
-import TopBar                       from "../components/dashboard/TopBar";
-import StatCard                     from "../components/dashboard/StatCard";
-import ThreatBar                    from "../components/dashboard/ThreatBar";
-import IOCList                      from "../components/dashboard/IOCList";
-import DetailPanel                  from "../components/dashboard/DetailPanel";
-import ResetRequestsPanel           from "../components/dashboard/ResetRequestsPanel";
-import ApproveModal                 from "../components/dashboard/ApproveModal";
-
+import { useState, useMemo }  from "react";
+import { useAuth }            from "../context/AuthContext";
+import { getDashboardTheme }  from "../styles/dashboardTheme";
+import { useDarkMode }        from "../context/DarkModeContext";
+import { useDashboardData }   from "../hooks/useDashboardData";
+import { useResetRequests }   from "../hooks/useResetRequests";
+import LoadingScreen          from "../components/dashboard/LoadingScreen";
+import TopBar                 from "../components/dashboard/TopBar";
+import StatCard               from "../components/dashboard/StatCard";
+import ThreatBar              from "../components/dashboard/ThreatBar";
+import IOCList                from "../components/dashboard/IOCList";
+import DetailPanel            from "../components/dashboard/DetailPanel";
+import ResetRequestsPanel     from "../components/dashboard/ResetRequestsPanel";
+import ApproveModal           from "../components/dashboard/ApproveModal";
+import GridBackground from "../components/ui/GridBackground";
 export default function DashboardPage() {
-  const { isAdmin }                       = useAuth();
-  const { darkMode, setDarkMode, toggle } = useDarkMode();
-  const { loading, scans, stats }         = useDashboardData();
-  const resetCtx                          = useResetRequests(isAdmin);
+  const { isAdmin }               = useAuth();
+  const { darkMode, setDarkMode } = useDarkMode();
+  const { loading, scans, stats } = useDashboardData();
+  const resetCtx                  = useResetRequests(isAdmin);
 
-  // useMemo : getDashboardTheme() n'est recalculé que si darkMode change
   const C = useMemo(() => getDashboardTheme(darkMode), [darkMode]);
 
   const [selectedIOC, setSelectedIOC] = useState(null);
   const [filter,      setFilter]      = useState("all");
 
-  // useMemo : les stats ne sont recalculées que si stats/scans changent
   const { totalScans, avgScore, criticalCount, highCount, lowCount } = useMemo(() => ({
     totalScans:    stats?.total_scans         || scans.length,
     avgScore:      stats?.avg_risk_score       || 0,
@@ -44,19 +42,10 @@ export default function DashboardPage() {
         ::-webkit-scrollbar-thumb { background: ${C.scrollThumb}; border-radius: 2px; }
         @keyframes spin           { to { transform: rotate(360deg) } }
       `}</style>
+<GridBackground color={C.gridLine} size={40} />
 
-      {/* Grid bg */}
-      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, backgroundImage: `linear-gradient(${C.gridLine} 1px, transparent 1px), linear-gradient(90deg, ${C.gridLine} 1px, transparent 1px)`, backgroundSize: "40px 40px" }} />
+      <TopBar darkMode={darkMode} setDarkMode={setDarkMode} C={C} pendingResets={resetCtx.pendingResets.length} />
 
-      <TopBar
-        darkMode={darkMode}
-        setDarkMode={setDarkMode}
-        toggle={toggle}
-        C={C}
-        pendingResets={resetCtx.pendingResets.length}
-      />
-
-      {/* Stats */}
       <div style={{ padding: "16px 24px", borderBottom: `1px solid ${C.border}`, display: "flex", gap: "10px", flexShrink: 0, flexWrap: "wrap", zIndex: 1, position: "relative" }}>
         <StatCard label="Total IOCs"  value={totalScans}           color={C.cyan}  C={C} />
         <StatCard label="Critiques"   value={criticalCount}        color="#ef4444" C={C} />
@@ -66,16 +55,8 @@ export default function DashboardPage() {
         <ThreatBar data={scans} C={C} />
       </div>
 
-      {/* Body */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden", zIndex: 1, position: "relative" }}>
-        <IOCList
-          scans={scans}
-          filter={filter}
-          onFilter={setFilter}
-          selectedIOC={selectedIOC}
-          onSelect={setSelectedIOC}
-          C={C}
-        />
+        <IOCList scans={scans} filter={filter} onFilter={setFilter} selectedIOC={selectedIOC} onSelect={setSelectedIOC} C={C} />
 
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
           <div style={{ padding: "12px 24px", borderBottom: `1px solid ${C.border}`, background: C.filtersBar, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -86,9 +67,7 @@ export default function DashboardPage() {
                 style={{ background: "transparent", border: "none", cursor: "pointer", color: C.textFaint, fontSize: "0.6rem", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", padding: 0, transition: "color 0.15s" }}
                 onMouseEnter={e => e.currentTarget.style.color = C.text}
                 onMouseLeave={e => e.currentTarget.style.color = C.textFaint}
-              >
-                ✕ FERMER
-              </button>
+              >✕ FERMER</button>
             )}
           </div>
           <div style={{ flex: 1, overflow: "hidden" }}>
@@ -98,25 +77,10 @@ export default function DashboardPage() {
       </div>
 
       {isAdmin && resetCtx.pendingResets.length > 0 && (
-        <ResetRequestsPanel
-          pendingResets={resetCtx.pendingResets}
-          darkMode={darkMode}
-          C={C}
-          onApprove={resetCtx.openApproveModal}
-          onReject={resetCtx.handleReject}
-        />
+        <ResetRequestsPanel pendingResets={resetCtx.pendingResets} darkMode={darkMode} C={C} onApprove={resetCtx.openApproveModal} onReject={resetCtx.handleReject} />
       )}
 
-      <ApproveModal
-        request={resetCtx.approveModal}
-        newPassword={resetCtx.newPassword}
-        setNewPassword={resetCtx.setNewPassword}
-        loading={resetCtx.approveLoading}
-        darkMode={darkMode}
-        C={C}
-        onConfirm={resetCtx.handleApprove}
-        onClose={resetCtx.closeApproveModal}
-      />
+      <ApproveModal request={resetCtx.approveModal} newPassword={resetCtx.newPassword} setNewPassword={resetCtx.setNewPassword} loading={resetCtx.approveLoading} darkMode={darkMode} C={C} onConfirm={resetCtx.handleApprove} onClose={resetCtx.closeApproveModal} />
     </div>
   );
 }

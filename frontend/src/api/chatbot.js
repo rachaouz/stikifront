@@ -1,4 +1,4 @@
-import { request } from "./index";
+import { request } from "./client";
 
 export const chatbotApi = {
   message: (message, session_id = null, model) =>
@@ -6,7 +6,6 @@ export const chatbotApi = {
       method: "POST",
       body: JSON.stringify({ message, session_id, model }),
     }),
-
   bulk: (indicators, session_id = null, model) =>
     request("/chatbot/analyze/bulk", {
       method: "POST",

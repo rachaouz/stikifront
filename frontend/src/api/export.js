@@ -1,24 +1,21 @@
-import { download } from "./index";
+import { download } from "./client";
+
+function buildExportParams({ ioc_type, risk_level } = {}) {
+  const params = new URLSearchParams();
+  if (ioc_type)   params.append("ioc_type",   ioc_type);
+  if (risk_level) params.append("risk_level", risk_level);
+  return params.toString();
+}
+
+function makeExporter(format, filename) {
+  return (filters) => {
+    const qs = buildExportParams(filters);
+    return download(`/export/${format}${qs ? "?" + qs : ""}`, filename);
+  };
+}
 
 export const exportApi = {
-  csv: ({ ioc_type, risk_level } = {}) => {
-    const params = new URLSearchParams();
-    if (ioc_type) params.append("ioc_type", ioc_type);
-    if (risk_level) params.append("risk_level", risk_level);
-    return download(`/export/csv?${params}`, "export_ti.csv");
-  },
-
-  json: ({ ioc_type, risk_level } = {}) => {
-    const params = new URLSearchParams();
-    if (ioc_type) params.append("ioc_type", ioc_type);
-    if (risk_level) params.append("risk_level", risk_level);
-    return download(`/export/json?${params}`, "export_ti.json");
-  },
-
-  pdf: ({ ioc_type, risk_level } = {}) => {
-    const params = new URLSearchParams();
-    if (ioc_type) params.append("ioc_type", ioc_type);
-    if (risk_level) params.append("risk_level", risk_level);
-    return download(`/export/pdf?${params}`, "export_ti.pdf");
-  },
+  csv:  makeExporter("csv",  "export_ti.csv"),
+  json: makeExporter("json", "export_ti.json"),
+  pdf:  makeExporter("pdf",  "export_ti.pdf"),
 };

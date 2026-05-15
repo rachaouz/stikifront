@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth }     from "../../context/AuthContext";
-import { exportApi }   from "../../api/export";
+import { useExport }   from "../../hooks/useExport";
 
 function TopBtn({ label, onClick, icon, C }) {
   return (
@@ -17,17 +17,9 @@ function TopBtn({ label, onClick, icon, C }) {
 }
 
 export default function TopBar({ darkMode, setDarkMode, C, pendingResets = 0 }) {
-  const navigate    = useNavigate();
-  const { isAdmin } = useAuth();
-
-  const handleExport = async (fmt) => {
-    try {
-      await exportApi[fmt]();
-    } catch (e) {
-      console.error(`Export ${fmt} error:`, e);
-      alert(`Erreur export ${fmt.toUpperCase()} : ${e.message}`);
-    }
-  };
+  const navigate         = useNavigate();
+  const { isAdmin }      = useAuth();
+  const { handleExport } = useExport();
 
   return (
     <div style={{ height: "56px", display: "flex", alignItems: "center", padding: "0 24px", gap: "10px", borderBottom: `1px solid ${C.border}`, background: C.topbar, backdropFilter: "blur(20px)", flexShrink: 0, zIndex: 20, position: "relative" }}>
@@ -45,7 +37,7 @@ export default function TopBar({ darkMode, setDarkMode, C, pendingResets = 0 }) 
         <TopBtn key={fmt} label={fmt.toUpperCase()} icon="↓" C={C} onClick={() => handleExport(fmt)} />
       ))}
       <button
-        onClick={() => { const next = !darkMode; setDarkMode(next); }}
+        onClick={() => setDarkMode(!darkMode)}
         title={darkMode ? "Passer en mode clair" : "Passer en mode sombre"}
         style={{ background: darkMode ? "rgba(127,216,50,0.08)" : "rgba(34,110,34,0.10)", border: `1px solid ${C.border}`, borderRadius: "6px", padding: "6px 10px", color: C.green, fontSize: "0.65rem", letterSpacing: "0.1em", cursor: "pointer", fontFamily: "'DM Mono',monospace", transition: "all 0.2s", display: "flex", alignItems: "center", gap: "5px" }}
         onMouseEnter={e => { e.currentTarget.style.borderColor = C.borderHover; e.currentTarget.style.background = `${C.green}14`; }}

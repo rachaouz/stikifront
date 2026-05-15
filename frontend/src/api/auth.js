@@ -1,15 +1,12 @@
-import { request } from "./index";
+import { request } from "./client";
 
 export const authApi = {
-  login: async (credentials) => {
-    const data = await request("/auth/login", {
+  // Retourne les données brutes — c'est AuthContext qui persiste la session
+  login: (credentials) =>
+    request("/auth/login", {
       method: "POST",
       body: JSON.stringify(credentials),
-    });
-    localStorage.setItem("access_token", data.access_token);
-    localStorage.setItem("role", data.role);
-    return data;
-  },
+    }),
 
   logout: () => {
     localStorage.removeItem("access_token");

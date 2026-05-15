@@ -11,20 +11,34 @@ import CreateUserModal    from "../components/chat/settings/CreateUserModal";
 import DeleteUserModal    from "../components/chat/settings/DeleteUserModal";
 import { t }             from "../components/chat/chatTheme";
 import { MODELS }        from "../components/chat/ModelSelector";
-
-export default function ChatbotPage() {
-  const { darkMode, toggle: toggleDark } = useDarkMode();
+import GridBackground from "../components/ui/GridBackground";
+function useChatPageUI() {
   const [selectedModel, setSelectedModel] = useState(MODELS[0].id);
   const [sidebarOpen,   setSidebarOpen]   = useState(true);
   const [settingsOpen,  setSettingsOpen]  = useState(false);
   const [selectedChat,  setSelectedChat]  = useState(null);
   const [adminModal,    setAdminModal]    = useState(null);
 
+  const openAdminModal = (type) => { setSettingsOpen(false); setAdminModal(type); };
+
+  return {
+    selectedModel, setSelectedModel,
+    sidebarOpen,   toggleSidebar: () => setSidebarOpen(v => !v),
+    settingsOpen,  openSettings: () => setSettingsOpen(true), closeSettings: () => setSettingsOpen(false),
+    selectedChat,  setSelectedChat,
+    adminModal,    openAdminModal, closeAdminModal: () => setAdminModal(null),
+  };
+}
+
+export default function ChatbotPage() {
+  const { darkMode } = useDarkMode();
+  const ui = useChatPageUI();
+
   const {
     messages, input, setInput,
     loading, activeIOC, bottomRef,
     handleSelectIOC, sendMessage, handleNewChat,
-  } = useChat(selectedModel);
+  } = useChat(ui.selectedModel);
 
   const th = t(darkMode);
 
@@ -35,48 +49,32 @@ export default function ChatbotPage() {
       fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
       fontSize: "14px", overflow: "hidden",
     }}>
-      {/* Grid bg */}
-      <div style={{
-        position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0,
-        backgroundImage: darkMode
-          ? `linear-gradient(rgba(0,168,255,0.018) 1px,transparent 1px),linear-gradient(90deg,rgba(0,168,255,0.018) 1px,transparent 1px)`
-          : "none",
-        backgroundSize: "44px 44px",
-      }} />
+     <GridBackground color={darkMode ? "rgba(0,168,255,0.018)" : null} size={44} />
 
-      {/* Modals */}
-      {settingsOpen && (
-        <SettingsModal
-          onClose={() => setSettingsOpen(false)}
-          darkMode={darkMode}
-          setDarkMode={toggleDark}
-          onOpenAdminModal={(type) => { setSettingsOpen(false); setAdminModal(type); }}
-        />
+      {ui.settingsOpen && (
+        <SettingsModal onClose={ui.closeSettings} onOpenAdminModal={ui.openAdminModal} />
       )}
-      {adminModal === "create" && <CreateUserModal darkMode={darkMode} onClose={() => setAdminModal(null)} />}
-      {adminModal === "delete" && <DeleteUserModal darkMode={darkMode} onClose={() => setAdminModal(null)} />}
+      {ui.adminModal === "create" && <CreateUserModal darkMode={darkMode} onClose={ui.closeAdminModal} />}
+      {ui.adminModal === "delete" && <DeleteUserModal darkMode={darkMode} onClose={ui.closeAdminModal} />}
 
-      {/* Sidebar */}
       <ChatSidebar
-        open={sidebarOpen}
+        open={ui.sidebarOpen}
         darkMode={darkMode}
-        selectedChat={selectedChat}
-        onSelectChat={setSelectedChat}
+        selectedChat={ui.selectedChat}
+        onSelectChat={ui.setSelectedChat}
         onNewChat={handleNewChat}
       />
 
-      {/* Main */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative", zIndex: 1 }}>
         <ChatTopBar
           darkMode={darkMode}
-          sidebarOpen={sidebarOpen}
-          onToggleSidebar={() => setSidebarOpen(v => !v)}
-          onOpenSettings={() => setSettingsOpen(true)}
+          sidebarOpen={ui.sidebarOpen}
+          onToggleSidebar={ui.toggleSidebar}
+          onOpenSettings={ui.openSettings}
           activeIOC={activeIOC}
           onSelectIOC={handleSelectIOC}
         />
 
-        {/* Messages */}
         <div style={{
           flex: 1, overflowY: "auto",
           padding: "24px 32px",
@@ -94,8 +92,8 @@ export default function ChatbotPage() {
           darkMode={darkMode}
           input={input}
           loading={loading}
-          selectedModel={selectedModel}
-          onModelChange={setSelectedModel}
+          selectedModel={ui.selectedModel}
+          onModelChange={ui.setSelectedModel}
           onInputChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage()}
           onSend={sendMessage}
